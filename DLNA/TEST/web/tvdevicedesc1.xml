@@ -1,0 +1,37 @@
+<?xml version="1.0"?>
+<root xmlns="urn:schemas-upnp-org:device-1-0">
+  <specVersion>
+    <major>1</major>
+    <minor>0</minor>
+  </specVersion>
+  <device>
+    <deviceType>urn:schemas-upnp-org:device:tvdevice:2</deviceType>
+    <friendlyName>UPnP Television Emulator2</friendlyName>
+    <manufacturer>TV Manufacturer Name2</manufacturer>
+    <manufacturerURL>http://www.manufacturer.com</manufacturerURL>
+    <modelDescription>UPnP Television Device Emulator 2.0</modelDescription>
+    <modelName>TVEmulator2</modelName>
+    <modelNumber>2.0</modelNumber>
+    <modelURL>http://www.manufacturer.com/TVEmulator/</modelURL>
+    <serialNumber>123456789002</serialNumber>
+    <UDN>uuid:Upnp-TVEmulator-2_0-1234567890001</UDN>
+    <UPC>1234567892</UPC>
+    <serviceList>
+      <service>
+        <serviceType>urn:schemas-upnp-org:service:tvcontrol:2</serviceType>
+        <serviceId>urn:upnp-org:serviceId:tvcontrol2</serviceId>
+        <controlURL>/upnp/control/tvcontrol2</controlURL>
+        <eventSubURL>/upnp/event/tvcontrol2</eventSubURL>
+        <SCPDURL>/tvcontrolSCPD2.xml</SCPDURL>
+      </service>
+      <service>
+        <serviceType>urn:schemas-upnp-org:service:tvpicture:2</serviceType>
+        <serviceId>urn:upnp-org:serviceId:tvpicture2</serviceId>
+        <controlURL>/upnp/control/tvpicture2</controlURL>
+        <eventSubURL>/upnp/event/tvpicture2</eventSubURL>
+        <SCPDURL>/tvpictureSCPD2.xml</SCPDURL>
+      </service>
+    </serviceList>
+   <presentationURL>/tvdevicepres.html</presentationURL>
+</device>
+</root>

@@ -1,0 +1,34 @@
+<?xml version="1.0"?>
+<scpd xmlns="urn:schemas-upnp-org:service-1-0">
+	<specVersion>
+		<major>1</major>
+		<minor>0</minor>
+	</specVersion>
+	
+	<actionList>
+		<action>
+			<name>ReceiveAudioURL</name>
+			<argumentList>
+				<argument>
+				<name>AudioURL</name>
+     			<relatedStateVariable>AudioURL</relatedStateVariable>
+     			<direction>in</direction>
+            </argument>
+            <argument>
+					<name>NewAudioURL</name>
+					<retval />
+					<relatedStateVariable>AudioURL</relatedStateVariable>
+					<direction>out</direction>
+            </argument>
+            </argumentList>
+        </action>
+    </actionList>
+    
+    <serviceStateTable>
+        <stateVariable sendEvents="yes">
+            <name>AudioURL</name>
+            <dataType>i4</dataType>
+            <defaultValue>0</defaultValue>
+        </stateVariable>
+    </serviceStateTable>
+</scpd>

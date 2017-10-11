@@ -1,0 +1,24 @@
+---- TVDevMutex Matches (23 in 2 files) ----
+Tv_device.c (libupnp-1.6.22\upnp\sample\common):ithread_mutex_t TVDevMutex;
+Tv_device.c (libupnp-1.6.22\upnp\sample\common):	ithread_mutex_lock(&TVDevMutex);
+Tv_device.c (libupnp-1.6.22\upnp\sample\common):	ithread_mutex_unlock(&TVDevMutex);
+Tv_device.c (libupnp-1.6.22\upnp\sample\common):	ithread_mutex_lock(&TVDevMutex);
+Tv_device.c (libupnp-1.6.22\upnp\sample\common):	ithread_mutex_unlock(&TVDevMutex);
+Tv_device.c (libupnp-1.6.22\upnp\sample\common):	ithread_mutex_lock(&TVDevMutex);
+Tv_device.c (libupnp-1.6.22\upnp\sample\common):	ithread_mutex_unlock(&TVDevMutex);
+Tv_device.c (libupnp-1.6.22\upnp\sample\common):	ithread_mutex_lock(&TVDevMutex);
+Tv_device.c (libupnp-1.6.22\upnp\sample\common):	ithread_mutex_unlock(&TVDevMutex);
+Tv_device.c (libupnp-1.6.22\upnp\sample\common):	ithread_mutex_lock(&TVDevMutex);
+Tv_device.c (libupnp-1.6.22\upnp\sample\common):	ithread_mutex_unlock(&TVDevMutex);
+Tv_device.c (libupnp-1.6.22\upnp\sample\common):	ithread_mutex_lock(&TVDevMutex);
+Tv_device.c (libupnp-1.6.22\upnp\sample\common):	ithread_mutex_unlock(&TVDevMutex);
+Tv_device.c (libupnp-1.6.22\upnp\sample\common):	ithread_mutex_lock(&TVDevMutex);
+Tv_device.c (libupnp-1.6.22\upnp\sample\common):	ithread_mutex_unlock(&TVDevMutex);
+Tv_device.c (libupnp-1.6.22\upnp\sample\common):	ithread_mutex_lock(&TVDevMutex);
+Tv_device.c (libupnp-1.6.22\upnp\sample\common):	ithread_mutex_unlock(&TVDevMutex);
+Tv_device.c (libupnp-1.6.22\upnp\sample\common):	ithread_mutex_lock(&TVDevMutex);
+Tv_device.c (libupnp-1.6.22\upnp\sample\common):	ithread_mutex_unlock(&TVDevMutex);
+Tv_device.c (libupnp-1.6.22\upnp\sample\common):	ithread_mutex_init(&TVDevMutex, NULL);
+Tv_device.c (libupnp-1.6.22\upnp\sample\common):	ithread_mutex_destroy(&TVDevMutex);
+Tv_device.h (libupnp-1.6.22\upnp\sample\common):extern ithread_mutex_t TVDevMutex;
+Tv_device.h (libupnp-1.6.22\upnp\sample\common): * Note that since this function blocks on the mutex TVDevMutex,

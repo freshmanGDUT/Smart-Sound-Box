@@ -1,0 +1,326 @@
+#ifndef PLAYERSERVER_H_INCLUDE
+#define PLAYERSERVER_H_INCLUDE
+#include <assert.h>
+#include "upnp.h"
+#include "GlobalDefine.h"
+#include "common/sample_util.h"
+
+struct PlayerService player_service_table[PLAYER_SERVICE_NUM];
+char player_control_val[PLAYER_CONTROL_VARCOUNT][256];
+
+/*Initialize Upnp SDK and Get ip and port
+ * ip_address: pointer point to ip_address pointer, to get the ip
+ * port: pointer point to port, to get the port
+ * return val: success: UPNP_E_SUCCESS ELSE: anything except 0
+ */
+int InitUPNPSDK(char **ip_address, unsigned short *port) {
+    /*lock thread*/
+    ithread_mutex_lock(&PlayerDevMutex);
+    int ret = 0;
+    /*Initialize Sample Util, should be initialized firstly*/
+    SampleUtil_Initialize(linux_print);
+    /*Initialize Upnp SDK,including get ip_address and port*/
+    if (( ret = UpnpInit(*ip_address, *port)) != UPNP_E_SUCCESS) {
+        SampleUtil_Print("Error with UpnpInit -- %d\n", ret);
+        UpnpFinish();
+        /*unlock thread*/
+        ithread_mutex_unlock(&PlayerDevMutex);
+        return ret;
+    }
+    /*Get ip_address and port*/
+    *ip_address = UpnpGetServerIpAddress();
+    *port = UpnpGetServerPort();
+    SampleUtil_Print("UPnP Initialized\n" "\tipaddress = %s port = %u\n", *ip_address ? *ip_address : "{NULL}", *port);
+    /*unlock thread*/
+    ithread_mutex_unlock(&PlayerDevMutex);
+    return ret;
+}
+
+/* To set the Upnp Web Server Root Dir
+ * web_dir_path: path of web server
+ * return val: success: UPNP_E_SUCCESS ELSE: anything except 0
+ */
+int UpnpSetServerRootDir(char *web_dir_path) {
+     /*lock thread*/
+    ithread_mutex_lock(&PlayerDevMutex);
+    int ret = 0;
+    /*Set Upnp Web Server Root Dir*/
+    if ((ret = UpnpSetWebServerRootDir( web_dir_path )) != UPNP_E_SUCCESS) {
+      SampleUtil_Print("Error specifying webserver root directory -- %s:  %d\n", web_dir_path, ret);
+      /*unlock thread*/
+      ithread_mutex_unlock(&PlayerDevMutex);
+      return ret;
+    }
+    /*unlock thread*/
+    ithread_mutex_unlock(&PlayerDevMutex);
+    return ret;
+}
+
+/* To deal the Action Request 
+ * ca_event: Action Request
+ * return val: success return UPNP_E_SUCCESS
+ */
+int DeviceHandleActionRequest(struct Upnp_Action_Request *ca_event) {
+    /* Defaults if action not found. */
+    int action_found = 0;
+    int i = 0;
+    int service = -1;
+    int retCode = 0;
+    const char *errorString = NULL;
+    const char *devUDN = NULL;
+    const char *serviceID = NULL;
+    const char *actionName = NULL;
+
+    ca_event->ErrCode = 0;
+    ca_event->ActionResult = NULL;
+
+    devUDN     = ca_event->DevUDN;
+    serviceID  = ca_event->ServiceID;
+    actionName = ca_event->ActionName;
+    /*Judge service type*/
+    if (strcmp(devUDN, player_service_table[PLAYER_SERVICE_CONTROL].UDN) == 0 && strcmp(serviceID, player_service_table[PLAYER_SERVICE_CONTROL].ServiceId) == 0) {
+        /* Request for action in the TvDevice Control Service. */
+        service = PLAYER_SERVICE_CONTROL;
+    } 
+    /* Find and call appropriate procedure based on action name.
+     * Each action name has an associated procedure stored in the
+     * service table. These are set at initialization. */
+    for (i = 0; i < 1 && player_service_table[service].ActionNames[i] != NULL; i++) {
+        if (!strcmp(actionName, player_service_table[service].ActionNames[i])) {
+            retCode = player_service_table[service].actions[i](
+            ca_event->ActionRequest,
+            &ca_event->ActionResult,
+            &errorString);
+            action_found = 1;
+            break;
+        }
+    }
+    if (!action_found) {
+        ca_event->ActionResult = NULL;
+        strcpy(ca_event->ErrStr, "Invalid Action");
+        ca_event->ErrCode = 401;
+    } else {
+        if (retCode == UPNP_E_SUCCESS) {
+            ca_event->ErrCode = UPNP_E_SUCCESS;
+        } else {
+            /* copy the error string */
+            strcpy(ca_event->ErrStr, errorString);
+            switch (retCode) {
+            case UPNP_E_INVALID_PARAM:
+                ca_event->ErrCode = 402;
+                break;
+            case UPNP_E_INTERNAL_ERROR:
+            default:
+                ca_event->ErrCode = 501;
+                break;
+            }
+        }
+    }
+    return ca_event->ErrCode;
+}
+
+/* When CP request to Player, this function will be called
+ * EventType: Request Type
+ * Event: Event Structure including UDN and so on 
+ * Cookie: values saved some info got from register func
+ * return val: 
+ */
+int PlayerCallbackFunc(Upnp_EventType EventType, void *Event, void *Cookie) {
+    switch(EventType) {
+    case UPNP_EVENT_SUBSCRIPTION_REQUEST:
+        break;
+    case UPNP_CONTROL_GET_VAR_REQUEST:
+        break;
+    case UPNP_CONTROL_ACTION_REQUEST:
+        DeviceHandleActionRequest((struct Upnp_Action_Request *)Event);
+        break;
+    default:
+        assert(0);
+    }
+    
+    /*Print the Event info*/
+    SampleUtil_PrintEvent(EventType, Event);
+    return 0;
+}
+
+/* Regrister Root Device
+ * ip_address: pointer point to ip_address
+ * port: Upnp device port
+ * desc_doc_url: to save the device description doc url
+ * return val: success: UPNP_E_SUCCESS ELSE: anything except 0
+ */
+int RegisterRootDevice(char *ip_address, unsigned short port, char *desc_doc_url) {
+    /*lock thread*/
+    ithread_mutex_lock(&PlayerDevMutex);
+    int ret = 0;
+    /*Set the descript doc network path*/
+    char *desc_doc_name = "PlayerDesc.xml";
+    snprintf(desc_doc_url, DESC_URL_SIZE, "http://%s:%d/%s", ip_address, port, desc_doc_name);
+    SampleUtil_Print("Registering the RootDevice\n" "\t with desc_doc_url: %s\n", desc_doc_url);
+    /*Register the Root Device, including the description doc url, a callback func, nothing, nothing*/
+    if ((ret = UpnpRegisterRootDevice(desc_doc_url,
+                                                              PlayerCallbackFunc,
+                                                              &device_handle,
+                                                              &device_handle)) != UPNP_E_SUCCESS) {
+        SampleUtil_Print( "Error registering the rootdevice : %d\n", ret );
+        UpnpFinish();
+        /*unlock thread*/
+        ithread_mutex_unlock(&PlayerDevMutex);
+        return ret;
+    } else {
+        SampleUtil_Print("RootDevice Registered\n" "Initializing State Table\n");
+        /*unlock thread*/
+        ithread_mutex_unlock(&PlayerDevMutex);
+        return ret;
+    }
+}
+
+/* Function received audio url 
+ * in: xml receive from CP
+ * out: xml reponse to CP
+ * errorString: error string 
+ * return val: success return NPNP_E_SUCCESS, else no 0
+ */
+int ReceiveAudioURL(IXML_Document * in, IXML_Document ** out, const char **errorString) {
+    /*lock thread*/
+    ithread_mutex_lock(&PlayerDevMutex);
+    char *value = NULL;
+    (*out) = NULL;
+    (*errorString) = NULL;
+    /*Get value from CP, means Audio URL*/
+    if (!(value = SampleUtil_GetFirstDocumentItem(in, "AudioURL"))) {
+      (*errorString) = "Invalid AudioURL";
+      /*unlock thread*/
+      ithread_mutex_unlock(&PlayerDevMutex);
+      return UPNP_E_INVALID_PARAM;
+    }
+    strcpy(player_service_table[PLAYER_SERVICE_CONTROL].VariableStrVal[PLAYER_CONTROL_AUDIOURL], value);
+    /*Send Events, update the status*/
+    UpnpNotify(device_handle, player_service_table[PLAYER_SERVICE_CONTROL].UDN, player_service_table[PLAYER_SERVICE_CONTROL].ServiceId, (const char **)&player_service_table[PLAYER_SERVICE_CONTROL].VariableName[PLAYER_CONTROL_AUDIOURL], (const char **)&player_service_table[PLAYER_SERVICE_CONTROL].VariableStrVal[PLAYER_CONTROL_AUDIOURL], 1);
+    /*Create response xml to CP(response xml, action name, service type, arg name, response value)*/
+    if (UpnpAddToActionResponse(out, "ReceiveAudioURL", service_type[PLAYER_SERVICE_CONTROL], "r_AudioURL", value) != UPNP_E_SUCCESS) {
+      (*out) = NULL;
+      (*errorString) = "Internal Error";
+      /*unlock thread*/
+      ithread_mutex_unlock(&PlayerDevMutex);
+      return UPNP_E_INTERNAL_ERROR;
+    }
+    printf("AudioURL is %s\n", value);
+    /*unlock thread*/
+    ithread_mutex_unlock(&PlayerDevMutex);
+    return UPNP_E_SUCCESS;
+}
+
+/* Set the Server Action Table
+ * service_type: The service that you want to set the action 
+ * out: service's struct PlayerService
+ * return val: success return 1, else return 0
+ */ 
+int SetActionTable(int service_type, struct PlayerService *out) {
+    if (service_type == PLAYER_SERVICE_CONTROL) {
+        out->ActionNames[0] = "ReceiveAudioURL";
+        out->actions[0] = ReceiveAudioURL;
+        return 1;
+    }
+    return 0;
+}
+
+/* Set the struct PlayerService, including the UDN, ServiceId, ServiceType, VariableCount, VariableName and VariableStrVal
+ * service_type: the service you want to set 
+ * UDN: to set the udn
+ * serviceId: to set the serviceId
+ * serviceTypeS: to set the ServiceType
+ * out: service's PlayerService
+ * return val: success: UPNP_E_SUCCESS ELSE: anything except 0(Get from SetActionTable)
+ */
+int SetServiceTable(int service_type, const char *UDN, const char *serviceId, const char *serviceTypeS, struct PlayerService *out) {
+    int i = 0;
+    strcpy(out->UDN, UDN);
+    strcpy(out->ServiceId, serviceId);
+    strcpy(out->ServiceType, serviceTypeS);
+    /*Choose service depend on service type*/
+    switch(service_type){
+        case PLAYER_SERVICE_CONTROL:
+            out->VariableCount = PLAYER_CONTROL_VARCOUNT;
+            for (i = 0; i != out->VariableCount; ++i) {
+                out->VariableName[i] = "AudioURL";
+                out->VariableStrVal[i] = player_control_val[i];
+            }
+            break;
+        default:
+            printf("[Error] No such service type\n");
+            assert(0);
+            break;
+    }
+    return SetActionTable(service_type, out);
+}
+
+/* Get device description doc and parse the xml doc to get some base info
+ * DescDocURL: the url path of description doc
+ * return val: success: UPNP_E_SUCCESS ELSE: anything except 0
+ */
+int DeviceStateTableInit(char *DescDocURL) {
+    /*lock thread*/
+    ithread_mutex_lock(&PlayerDevMutex);
+    IXML_Document *DescDoc = NULL;
+    char *udn = NULL;
+    char *servid_ctrl = NULL;
+    char *evnturl_ctrl = NULL;
+    char *ctrlurl_ctrl = NULL;
+    int ret = 0;
+    /*Download description document */
+    if (UpnpDownloadXmlDoc(DescDocURL, &DescDoc) != UPNP_E_SUCCESS) {
+        SampleUtil_Print("TvDeviceStateTableInit -- Error Parsing %s\n", DescDocURL);
+        ret = UPNP_E_INVALID_DESC;
+        if (DescDoc) {
+            ixmlDocument_free(DescDoc);
+        }
+        /*unlock thread*/
+        ithread_mutex_unlock(&PlayerDevMutex);
+        return ret;
+    }  
+    /*Get device UDN*/
+    udn = SampleUtil_GetFirstDocumentItem(DescDoc, "UDN");
+    /*Parse service*/
+    if (!SampleUtil_FindAndParseService(DescDoc, DescDocURL,
+                                                                   service_type[PLAYER_SERVICE_CONTROL],
+                                                                   &servid_ctrl, &evnturl_ctrl,
+                                                                   &ctrlurl_ctrl)) {
+        SampleUtil_Print("TvDeviceStateTableInit -- Error: Could not find Service: %s\n", service_type[PLAYER_SERVICE_CONTROL]);
+        ret = UPNP_E_INVALID_DESC;
+        if (DescDoc) {
+            ixmlDocument_free(DescDoc);
+        }
+        /*unlock thread*/
+        ithread_mutex_unlock(&PlayerDevMutex);
+        return ret;
+    }
+    printf("service type is %s\n", service_type[PLAYER_SERVICE_CONTROL]);
+    /*Set service table*/
+    SetServiceTable(PLAYER_SERVICE_CONTROL, udn, servid_ctrl, service_type[PLAYER_SERVICE_CONTROL], &player_service_table[PLAYER_SERVICE_CONTROL]);
+    /*unlock thread*/
+    ithread_mutex_unlock(&PlayerDevMutex);
+    return ret;
+}
+
+
+/* Boradcast Player device
+ * return val: success return UPNP_E_SUCCESS
+ */
+int DeviceAdvertisement() {
+    /*lock thread*/
+    ithread_mutex_lock(&PlayerDevMutex);
+    int default_advr_expire = 100;
+    int ret = 0;
+    if ((ret = UpnpSendAdvertisement(device_handle, default_advr_expire)) != UPNP_E_SUCCESS) {
+      SampleUtil_Print("Error sending advertisements: %d\n", ret);
+      UpnpFinish();
+      /*unlock thread*/
+      ithread_mutex_unlock(&PlayerDevMutex);
+      return ret;
+    }
+    /*unlock thread*/
+    ithread_mutex_unlock(&PlayerDevMutex);
+}
+
+#endif
